@@ -6,7 +6,7 @@ import concurrent.futures
 import signal, psutil, os
 from concurrent.futures import ProcessPoolExecutor, ALL_COMPLETED,FIRST_COMPLETED, wait
 import copy
-from sklearn.cluster import KMean
+from sklearn.cluster import KMeans
 
 
 ## Ra,Dec to focal plane projection
@@ -853,7 +853,7 @@ def group_thread_assign(group,thread_num,fiber_pos_3,fibb2=None,fibb2_items=None
 
 
 
-def group_proc3(group_op_i,thread_op_i,obj_3,obj_3_assigned,thread_num,max_loop=1e7,alpha_length=5.2,beta_length=11.6,col_cond=3):
+def group_proc3(group_op_i,thread_op_i,fiber_pos_3,obj_3,obj_3_assigned,adj_fib,thread_num,max_loop=1e7,alpha_length=5.2,beta_length=11.6,col_cond=3):
     group_comb=[]
     group_fib=[]
     obj_3_x=np.array(obj_3['x'])
@@ -1218,7 +1218,7 @@ def group_proc3(group_op_i,thread_op_i,obj_3,obj_3_assigned,thread_num,max_loop=
 
 
 
-def group_proc3_2(group_op_i,thread_op_i,orig_assigned,adj_fib,obj_3,fibb2,fibb2_items,thread_num,alpha_length=5.2,beta_length=11.6,col_cond=3):
+def group_proc3_2(group_op_i,thread_op_i,orig_assigned,obj_3_assigned,fiber_pos_3,adj_fib,obj_3,fibb2,fibb2_items,thread_num,alpha_length=5.2,beta_length=11.6,col_cond=3):
     group_comb=[]
     orig_fibnum=np.array(orig_assigned['fiber_num'])
     obj_3_x=np.array(obj_3['x'])
@@ -1416,13 +1416,13 @@ def group_proc3_2(group_op_i,thread_op_i,orig_assigned,adj_fib,obj_3,fibb2,fibb2
 def proc3(orig_assigned,fiber_pos_3,group,obj_3,obj_3_assigned,thread_num,alpha_length=5.2,beta_length=11.6,max_loop=1e7,col_cond=3):
     if len(group)==0:
         return obj_3_assigned
-    
+    adj_fib=list(fiber_pos_3['adj_fib_idx']) 
     group_op,thread_op=group_thread_assign(group,thread_num,fiber_pos_3)
     pool = ProcessPoolExecutor(max_workers=thread_num)
     futures=[]
 #thread 나줘주기
     for i in range(len(group_op)):
-        futures.append(pool.submit(group_proc3,group_op[i],thread_op[i],obj_3,obj_3_assigned,thread_num,max_loop,alpha_length,beta_length,col_cond))
+        futures.append(pool.submit(group_proc3,group_op[i],thread_op[i],fiber_pos_3,obj_3,obj_3_assigned,adj_fib,thread_num,max_loop,alpha_length,beta_length,col_cond))
     done, not_done = wait(futures, return_when=ALL_COMPLETED)
     pool.shutdown(wait=True)
     kill_child_processes(os.getpid())
@@ -1647,7 +1647,7 @@ def proc3(orig_assigned,fiber_pos_3,group,obj_3,obj_3_assigned,thread_num,alpha_
         futures=[]
 
         for i in range(len(group_op)):
-            futures.append(pool.submit(group_proc3_2,group_op[i],thread_op[i],orig_assigned,adj_fib,obj_3,fibb2,fibb2_items,thread_num,alpha_length,beta_length,col_cond))
+            futures.append(pool.submit(group_proc3_2,group_op[i],thread_op[i],orig_assigned,obj_3_assigned,fiber_pos_3,adj_fib,obj_3,fibb2,fibb2_items,thread_num,alpha_length,beta_length,col_cond))
         done, not_done = wait(futures, return_when=ALL_COMPLETED)
         pool.shutdown(wait=True)
         kill_child_processes(os.getpid())    
@@ -1923,7 +1923,7 @@ def proc_opt(obj,fiber_pos,thread_num,max_loop,order=3,alpha_length=5.2,beta_len
         else :
             unassigned_fib.extend(group[i])
 
-    result_opt=group_proc3(group_opt,thread_num,obj_3,obj_3_assigned,thread_num,max_loop,alpha_length,beta_length,col_cond)
+    result_opt=group_proc3(group_opt,thread_num,fiber_pos_3,obj_3,obj_3_assigned,adj_fib,thread_num,max_loop,alpha_length,beta_length,col_cond)
     for i in range(len(result_opt[0])):
         for j in range(len(result_opt[1][i])):
             if result_opt[1][i][j]>0:
